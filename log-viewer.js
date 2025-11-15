@@ -42,32 +42,15 @@ try {
 // --- Executar apenas após o DOM estar pronto ---
 window.addEventListener('DOMContentLoaded', () => {
 
-    // --- [ALTERAÇÃO] Todas as referências do DOM são definidas aqui ---
-    const authScreen = document.getElementById("auth-screen");
-    const appContent = document.getElementById("app-content");
-    const loginForm = document.getElementById("login-form");
-    const loginError = document.getElementById("login-error");
-    const userEmailDisplay = document.getElementById("user-email-display");
-    const logoutButton = document.getElementById("logout-button");
-    const loginSubmitBtn = document.getElementById("login-submit-btn");
-
-    const filterForm = document.getElementById("filter-form");
-    const filterSubmitBtn = document.getElementById("filter-submit-btn");
-    const filterResetBtn = document.getElementById("filter-reset-btn");
-    const logsLoading = document.getElementById("logs-loading");
-    const listaLogs = document.getElementById("lista-logs");
-
-    // Inputs do formulário de filtro
-    const filterStartDate = document.getElementById("filter-start-date");
-    const filterEndDate = document.getElementById("filter-end-date");
-    const filterEmail = document.getElementById("filter-email");
-    const filterAction = document.getElementById("filter-action");
-
     // --- CONTROLE DE AUTENTICAÇÃO ---
 
+    const loginForm = document.getElementById("login-form");
     if (loginForm) {
         loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();
+            
+            const loginError = document.getElementById("login-error");
+            const loginSubmitBtn = document.getElementById("login-submit-btn");
             if (loginError) loginError.textContent = "";
             toggleButtonLoading(loginSubmitBtn, true, "Entrar");
 
@@ -84,10 +67,9 @@ window.addEventListener('DOMContentLoaded', () => {
                 toggleButtonLoading(loginSubmitBtn, false, "Entrar");
             }
         });
-    } else {
-        console.error("Elemento 'login-form' não encontrado.");
     }
 
+    const logoutButton = document.getElementById("logout-button");
     if (logoutButton) {
         logoutButton.addEventListener("click", async () => {
             try {
@@ -96,11 +78,14 @@ window.addEventListener('DOMContentLoaded', () => {
                 console.error("Erro ao sair:", error);
             }
         });
-    } else {
-        console.error("Elemento 'logout-button' não encontrado.");
     }
 
     onAuthStateChanged(auth, (user) => {
+        const authScreen = document.getElementById("auth-screen");
+        const appContent = document.getElementById("app-content");
+        const userEmailDisplay = document.getElementById("user-email-display");
+        const listaLogs = document.getElementById("lista-logs");
+
         if (user) {
             // Usuário está logado
             if (userEmailDisplay) userEmailDisplay.textContent = user.email;
@@ -119,22 +104,20 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // --- CARREGAMENTO E FILTRO DE LOGS ---
 
+    const filterForm = document.getElementById("filter-form");
     if (filterForm) {
         filterForm.addEventListener("submit", (e) => {
             e.preventDefault();
             loadLogs();
         });
-    } else {
-        console.error("Elemento 'filter-form' não encontrado.");
     }
 
+    const filterResetBtn = document.getElementById("filter-reset-btn");
     if (filterResetBtn) {
         filterResetBtn.addEventListener("click", () => {
             if (filterForm) filterForm.reset();
             loadLogs();
         });
-    } else {
-         console.error("Elemento 'filter-reset-btn' não encontrado.");
     }
 
     // Inicializa ícones Lucide
@@ -240,18 +223,26 @@ window.addEventListener('DOMContentLoaded', () => {
 
     async function loadLogs() {
         if (!auth.currentUser) return;
+        
+        // [ALTERAÇÃO] Busca os elementos do DOM dentro da função
+        const logsLoading = document.getElementById("logs-loading");
+        const listaLogs = document.getElementById("lista-logs");
+        const filterSubmitBtn = document.getElementById("filter-submit-btn");
 
         if (logsLoading) logsLoading.classList.remove("hidden");
         if (listaLogs) listaLogs.innerHTML = "";
         toggleButtonLoading(filterSubmitBtn, true, "Buscar");
 
         try {
-            // --- [ALTERAÇÃO] Usa as variáveis definidas no escopo do DOMContentLoaded ---
-            const startDate = filterStartDate ? filterStartDate.value : null;
-            const endDate = filterEndDate ? filterEndDate.value : null;
-            const email = filterEmail ? filterEmail.value : null;
-            const action = filterAction ? filterAction.value : null;
-            // --- Fim da Alteração ---
+            const startDateInput = document.getElementById("filter-start-date");
+            const endDateInput = document.getElementById("filter-end-date");
+            const emailInput = document.getElementById("filter-email");
+            const actionInput = document.getElementById("filter-action");
+
+            const startDate = startDateInput ? startDateInput.value : null;
+            const endDate = endDateInput ? endDateInput.value : null;
+            const email = emailInput ? emailInput.value : null;
+            const action = actionInput ? actionInput.value : null;
 
             // Caminho da coleção de logs
             const logsCollectionRef = collection(db, "dadosIgreja", "ADCA-CG", "logs");
