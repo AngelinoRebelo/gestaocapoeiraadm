@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GESTÃO ADCA - CAP - ADM</title> <!-- TÍTULO ATUALIZADO -->
+    <title>GESTÃO ADCA - CAP - ADM</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -109,6 +109,15 @@
     <!-- Tela de Autenticação (Login) -->
     <div id="auth-screen" class="min-h-screen flex items-center justify-center bg-gray-200 p-4">
         <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+            
+            <!-- [NOVO] INÍCIO DA SEÇÃO DO LOGO (LOGIN) -->
+            <div class="flex flex-col items-center mb-6">
+                <img src="https://i.postimg.cc/NF8psJ8b/adca.png" 
+                     alt="Logo ADCA" 
+                     class="h-20 w-auto mb-4 rounded-lg">
+            </div>
+            <!-- [NOVO] FIM DA SEÇÃO DO LOGO (LOGIN) -->
+
             <!-- Formulário de Login -->
             <div>
                 <!-- TÍTULO ATUALIZADO -->
@@ -140,8 +149,16 @@
         <!-- Cabeçalho -->
         <header class="bg-blue-600 text-white shadow-md">
             <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-                 <!-- TÍTULO ATUALIZADO -->
-                <h1 class="text-2xl font-bold">GESTÃO ADCA - CAP. GRANDE - ADM</h1>
+                 
+                 <!-- [NOVO] Bloco do Logo e Título -->
+                <div class="flex items-center gap-3">
+                    <img src="https://i.postimg.cc/NF8psJ8b/adca.png" 
+                         alt="Logo" 
+                         class="h-10 w-auto rounded-md hidden sm:block">
+                    <h1 class="text-2xl font-bold">GESTÃO ADCA - CAP. GRANDE - ADM</h1>
+                </div>
+                <!-- Fim do Bloco do Logo -->
+
                 <div>
                     <span id="user-email-display" class="text-sm mr-4"></span>
                     <button id="logout-button"
@@ -254,5 +271,3 @@
 </body>
 
 </html>
-
-
