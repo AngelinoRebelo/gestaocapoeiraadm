@@ -39,8 +39,9 @@ try {
     document.body.innerHTML = "<p>Erro crítico ao conectar ao banco de dados.</p>";
 }
 
-// --- Executar apenas após o DOM estar pronto ---
-window.addEventListener('DOMContentLoaded', () => {
+// --- [CORREÇÃO] Função principal da UI ---
+// Esta função contém todo o código que interage com o HTML
+function initializeAppUI() {
 
     // --- CONTROLE DE AUTENTICAÇÃO ---
 
@@ -328,4 +329,15 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-}); // Fim do 'DOMContentLoaded'
+} // --- Fim do initializeAppUI ---
+
+
+// --- [NOVO] Lógica para iniciar a UI ---
+// Verifica se o DOM já foi carregado
+if (document.readyState === 'loading') {
+    // O documento ainda está carregando, espere pelo evento
+    window.addEventListener('DOMContentLoaded', initializeAppUI);
+} else {
+    // O DOM já foi carregado, execute a função imediatamente
+    initializeAppUI();
+}
