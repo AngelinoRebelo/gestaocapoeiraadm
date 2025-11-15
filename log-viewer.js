@@ -29,6 +29,8 @@ const firebaseConfig = {
 
 // Inicialização do Firebase
 let app, auth, db;
+let localLogs = []; // [NOVO] Array para guardar os logs carregados
+
 try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
@@ -102,6 +104,140 @@ function initializeAppUI() {
     });
 
 
+    // --- [NOVO] CONTROLES DO MODAL ---
+    const logDetalhesModal = document.getElementById("log-detalhes-modal");
+    const closeLogModal = document.getElementById("close-log-modal");
+    const logModalTitle = document.getElementById("log-modal-title");
+    const logModalContent = document.getElementById("log-modal-content");
+
+    if (closeLogModal) {
+        closeLogModal.onclick = () => {
+            if (logDetalhesModal) logDetalhesModal.style.display = "none";
+        };
+    }
+    
+    // Clica fora para fechar
+    window.onclick = function (event) {
+        if (event.target == logDetalhesModal) {
+            logDetalhesModal.style.display = "none";
+        }
+    }
+
+    /**
+     * [NOVO] Abre o modal com os detalhes do log
+     */
+    function showLogDetalhesModal(logId) {
+        const log = localLogs.find(l => l.id === logId);
+        if (!log) {
+            console.error("Log não encontrado:", logId);
+            return;
+        }
+
+        if (logModalTitle) logModalTitle.textContent = `Detalhes: ${log.acao}`;
+        if (logModalContent) {
+            logModalContent.innerHTML = generateModalContent(log);
+        }
+        if (logDetalhesModal) logDetalhesModal.style.display = "block";
+    }
+
+    /**
+     * [NOVO] Gera o HTML para o conteúdo do modal (incluindo o "diff")
+     */
+    function generateModalContent(log) {
+        const { acao, detalhes } = log;
+
+        // 1. Caso: "Membro Atualizado" (com dados antigos e novos)
+        if (acao === "Membro Atualizado" && detalhes.dadosAntigos && detalhes.dadosNovos) {
+            return generateDiffHtml(detalhes.dadosAntigos, detalhes.dadosNovos);
+        }
+
+        // 2. Caso: Exclusões (mostra o que foi excluído)
+        if (acao.startsWith("Exclusão") && detalhes.detalhesExcluidos) {
+            let html = '<h3 class="text-lg font-semibold text-red-700">Dados que foram excluídos:</h3>';
+            html += '<div class="log-details-fallback">'; // Reusa o estilo de "fallback"
+            html += JSON.stringify(detalhes.detalhesExcluidos, null, 2)
+                .replace(/\\n/g, '<br>')
+                .replace(/"([^"]+)":/g, '<span class="text-blue-600 font-medium">"$1"</span>:');
+            html += '</div>';
+            return html;
+        }
+
+        // 3. Caso: Criações (mostra o que foi criado)
+        if (acao.endsWith("Criado")) {
+            let html = '<h3 class="text-lg font-semibold text-green-700">Dados do novo item criado:</h3>';
+            html += '<div class="log-details-fallback">';
+            const simpleDetalhes = { ...detalhes };
+            delete simpleDetalhes.dadosAntigos; // Limpa (caso exista em logs antigos)
+            delete simpleDetalhes.dadosNovos;   // Limpa
+            html += JSON.stringify(simpleDetalhes, null, 2)
+                 .replace(/\\n/g, '<br>')
+                 .replace(/"([^"]+)":/g, '<span class="text-blue-600 font-medium">"$1"</span>:');
+            html += '</div>';
+            return html;
+        }
+
+        // 4. Fallback: Se for um formato antigo ou não reconhecido
+        return `<p>Não há detalhes de comparação para esta ação.</p><div class="log-details-fallback">${JSON.stringify(detalhes, null, 2)}</div>`;
+    }
+
+    /**
+     * [NOVO] Gera o HTML de comparação (diff) lado a lado
+     */
+    function generateDiffHtml(antigo, novo) {
+        let html = '<div class="diff-grid">';
+        
+        // Formata as chaves para serem mais legíveis
+        const labels = {
+            nome: 'Nome', dataNascimento: 'Data Nasc.', telefone: 'Telefone', email: 'Email',
+            cpf: 'CPF', rg: 'RG', naturalidade: 'Naturalidade', endereco: 'Endereço',
+            nomePai: 'Pai', nomeMae: 'Mãe', estadoCivil: 'Estado Civil', conjuge: 'Cônjuge',
+            profissao: 'Profissão', escolaridade: 'Escolaridade', funcao: 'Função',
+            dataBatismo: 'Data Batismo', dataChegada: 'Data Chegada',
+            igrejaAnterior: 'Igreja Anterior', cargoAnterior: 'Cargo Anterior'
+        };
+
+        const chaves = new Set([...Object.keys(antigo), ...Object.keys(novo)]);
+        
+        // Coluna "Antes"
+        let colAntes = '<div class="diff-col diff-col-antes"><h3>DE (Antigo)</h3>';
+        for (const key of chaves) {
+            // Pula chaves que não são dados do membro
+            if (!labels[key]) continue; 
+            
+            const valAntigo = antigo[key] || '---';
+            const valNovo = novo[key] || '---';
+            const mudou = String(valAntigo) !== String(valNovo);
+            
+            colAntes += `<div class="diff-item">
+                        <span class="diff-label">${labels[key]}</span>
+                        <span class="diff-value ${mudou ? 'diff-highlight' : ''}">${valAntigo}</span>
+                       </div>`;
+        }
+        colAntes += '</div>'; // Fim da coluna "Antes"
+        
+        // Coluna "Depois"
+        let colDepois = '<div class="diff-col diff-col-depois"><h3>PARA (Novo)</h3>';
+        for (const key of chaves) {
+             // Pula chaves que não são dados do membro
+            if (!labels[key]) continue;
+            
+            const valAntigo = antigo[key] || '---';
+            const valNovo = novo[key] || '---';
+            const mudou = String(valAntigo) !== String(valNovo);
+
+            colDepois += `<div class="diff-item">
+                        <span class="diff-label">${labels[key]}</span>
+                        <span class="diff-value ${mudou ? 'diff-highlight' : ''}">${valNovo}</span>
+                       </div>`;
+        }
+        colDepois += '</div>'; // Fim da coluna "Depois"
+
+        html += colAntes + colDepois; // Junta as colunas
+        html += '</div>'; // Fim do grid
+        return html;
+    }
+
+
     // --- CARREGAMENTO E FILTRO DE LOGS ---
 
     const filterForm = document.getElementById("filter-form");
@@ -127,7 +263,7 @@ function initializeAppUI() {
     // --- FUNÇÕES ---
 
     /**
-     * Formata o objeto de detalhes do log para uma exibição amigável em HTML.
+     * Formata o objeto de detalhes do log para uma exibição amigável em HTML (na tabela principal).
      * @param {string} acao - A ação registrada.
      * @param {object} detalhes - O objeto de detalhes do log.
      * @returns {string} - Uma string HTML formatada.
@@ -160,6 +296,10 @@ function initializeAppUI() {
                 case "Membro Criado":
                 case "Membro Atualizado":
                     html = item("Nome", detalhes.nome) + item("ID Membro", detalhes.membroId);
+                    // [NOVO] Adiciona um indicador se houver diff
+                    if (detalhes.dadosAntigos) {
+                        html += `<span class="text-xs text-blue-500 font-medium">(Clique para ver ${acao === 'Membro Atualizado' ? 'mudanças' : 'detalhes'})</span>`;
+                    }
                     break;
                 
                 case "Dízimo Criado":
@@ -187,25 +327,26 @@ function initializeAppUI() {
                 
                 case "Exclusão Membro":
                     html = item("ID Excluído", detalhes.membroId) +
-                           item("Nome Excluído", detalhes.detalhesExcluidos?.nome || 'N/A');
+                           item("Nome Excluído", detalhes.detalhesExcluidos?.nome || 'N/A') +
+                           `<span class="text-xs text-red-500 font-medium">(Clique para ver dados excluídos)</span>`;
                     break;
 
                 case "Exclusão Dízimo":
                     html = item("ID Excluído", detalhes.dizimoId) +
                            item("Membro (na época)", detalhes.detalhesExcluidos?.membroNome || 'N/A') +
-                           item("Valor Excluído", formatarMoeda(detalhes.detalhesExcluidos?.valor));
+                           `<span class="text-xs text-red-500 font-medium">(Clique para ver dados excluídos)</span>`;
                     break;
                 
                 case "Exclusão Oferta":
                      html = item("ID Excluído", detalhes.ofertaId) +
                            item("Descrição (na época)", detalhes.detalhesExcluidos?.descricao || 'N/A') +
-                           item("Valor Excluído", formatarMoeda(detalhes.detalhesExcluidos?.valor));
+                           `<span class="text-xs text-red-500 font-medium">(Clique para ver dados excluídos)</span>`;
                     break;
 
                 case "Exclusão Financeiro":
                      html = item("ID Excluído", detalhes.financeiroId) +
                            item("Descrição (na época)", detalhes.detalhesExcluidos?.descricao || 'N/A') +
-                           item("Valor Excluído", formatarMoeda(detalhes.detalhesExcluidos?.valor));
+                           `<span class="text-xs text-red-500 font-medium">(Clique para ver dados excluídos)</span>`;
                     break;
 
                 default:
@@ -230,6 +371,7 @@ function initializeAppUI() {
 
         if (logsLoading) logsLoading.classList.remove("hidden");
         if (listaLogs) listaLogs.innerHTML = "";
+        localLogs = []; // [NOVO] Limpa os logs locais
         toggleButtonLoading(filterSubmitBtn, true, "Buscar");
 
         try {
@@ -273,7 +415,9 @@ function initializeAppUI() {
             }
             
             querySnapshot.docs.forEach(doc => {
-                const log = doc.data();
+                const log = { id: doc.id, ...doc.data() }; // [ALTERAÇÃO] Salva o log com ID
+                localLogs.push(log); // [NOVO] Adiciona ao array local
+                
                 const tr = document.createElement("tr");
 
                 // Formata a data
@@ -289,7 +433,9 @@ function initializeAppUI() {
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 align-top">${log.userEmail || 'N/A'}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-700 align-top">${log.acao}</td>
                     <td class="px-6 py-4 text-sm text-gray-900 align-top">
-                        <div class="log-details-container">${detalhesHtml}</div>
+                        <div class="log-details-container log-details-clickable" data-log-id="${log.id}">
+                            ${detalhesHtml}
+                        </div>
                     </td>
                 `;
                 if(listaLogs) listaLogs.appendChild(tr);
@@ -306,8 +452,27 @@ function initializeAppUI() {
         } finally {
             if (logsLoading) logsLoading.classList.add("hidden");
             toggleButtonLoading(filterSubmitBtn, false, "Buscar");
+            addLogClickListeners(); // [NOVO] Adiciona os listeners de clique
             lucide.createIcons();
         }
+    }
+
+    /**
+     * [NOVO] Adiciona listeners de clique aos detalhes do log
+     */
+    function addLogClickListeners() {
+        document.querySelectorAll('.log-details-clickable').forEach(el => {
+            // Remove listener antigo para evitar duplicatas ao recarregar
+            el.replaceWith(el.cloneNode(true));
+        });
+
+        // Adiciona novos listeners
+        document.querySelectorAll('.log-details-clickable').forEach(el => {
+            el.addEventListener('click', (e) => {
+                const logId = e.currentTarget.dataset.logId;
+                showLogDetalhesModal(logId);
+            });
+        });
     }
 
 
