@@ -39,10 +39,10 @@ try {
     document.body.innerHTML = "<p>Erro crítico ao conectar ao banco de dados.</p>";
 }
 
-// --- [NOVO] Executar apenas após o DOM estar pronto ---
+// --- Executar apenas após o DOM estar pronto ---
 window.addEventListener('DOMContentLoaded', () => {
 
-    // --- REFERÊNCIAS DO DOM ---
+    // --- [ALTERAÇÃO] Todas as referências do DOM são definidas aqui ---
     const authScreen = document.getElementById("auth-screen");
     const appContent = document.getElementById("app-content");
     const loginForm = document.getElementById("login-form");
@@ -56,6 +56,12 @@ window.addEventListener('DOMContentLoaded', () => {
     const filterResetBtn = document.getElementById("filter-reset-btn");
     const logsLoading = document.getElementById("logs-loading");
     const listaLogs = document.getElementById("lista-logs");
+
+    // Inputs do formulário de filtro
+    const filterStartDate = document.getElementById("filter-start-date");
+    const filterEndDate = document.getElementById("filter-end-date");
+    const filterEmail = document.getElementById("filter-email");
+    const filterAction = document.getElementById("filter-action");
 
     // --- CONTROLE DE AUTENTICAÇÃO ---
 
@@ -240,10 +246,12 @@ window.addEventListener('DOMContentLoaded', () => {
         toggleButtonLoading(filterSubmitBtn, true, "Buscar");
 
         try {
-            const startDate = document.getElementById("filter-start-date").value;
-            const endDate = document.getElementById("filter-end-date").value;
-            const email = document.getElementById("filter-email").value;
-            const action = document.getElementById("filter-action").value;
+            // --- [ALTERAÇÃO] Usa as variáveis definidas no escopo do DOMContentLoaded ---
+            const startDate = filterStartDate ? filterStartDate.value : null;
+            const endDate = filterEndDate ? filterEndDate.value : null;
+            const email = filterEmail ? filterEmail.value : null;
+            const action = filterAction ? filterAction.value : null;
+            // --- Fim da Alteração ---
 
             // Caminho da coleção de logs
             const logsCollectionRef = collection(db, "dadosIgreja", "ADCA-CG", "logs");
@@ -261,10 +269,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 queryConstraints.push(where("userEmail", "==", email.trim()));
             }
             if (action) {
-                // Firestore não suporta busca "LIKE" ou "contains" de forma simples e eficiente em queries
-                // A melhor forma seria filtrar por "ação" exata, mas vamos filtrar no cliente
-                // Por enquanto, vamos buscar por 'startsWith'.
-                // Para "contains", teríamos que buscar tudo e filtrar no JS.
                 queryConstraints.push(where("acao", ">=", action.trim()));
                 queryConstraints.push(where("acao", "<=", action.trim() + '\uf8ff'));
             }
@@ -287,7 +291,6 @@ window.addEventListener('DOMContentLoaded', () => {
                     timeStyle: 'medium'
                 });
 
-                // [ALTERAÇÃO] Formata os detalhes usando a nova função
                 const detalhesHtml = formatarDetalhes(log.acao, log.detalhes);
 
                 tr.innerHTML = `
