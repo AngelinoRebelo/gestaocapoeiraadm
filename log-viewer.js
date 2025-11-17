@@ -103,7 +103,13 @@ function initializeAppUI() {
             popularFiltrosData(filterMes, filterAno, new Date());
             
             loadLogs(); // Carrega os logs iniciais
-            lucide.createIcons();
+            
+            // [NOVO] Verifica se há logs desde a última carga
+            checkForNewLogs(); 
+            // [NOVO] Configura o listener de clique para o ícone
+            setupLogIndicatorListener(); 
+            
+            lucide.createIcons(); // Chama para garantir que o sino seja criado
         } else {
             // Usuário está deslogado
             if (authScreen) authScreen.style.display = "flex";
@@ -287,6 +293,84 @@ function initializeAppUI() {
 
     // --- FUNÇÕES ---
 
+    // [NOVO] FUNÇÕES DO INDICADOR DE LOG
+    /**
+     * [NOVO] Verifica se existem logs mais recentes desde a última checagem.
+     * Usa o localStorage para comparar com a data da última carga de logs.
+     */
+    async function checkForNewLogs() {
+        if (!db) return; // Garante que o DB está pronto
+        
+        const newLogsIndicator = document.getElementById("new-logs-indicator");
+        if (!newLogsIndicator) return;
+
+        const lastCheckString = localStorage.getItem('lastLogCheck');
+        
+        // Se nunca checou (primeira visita), não há "novos" logs para mostrar.
+        if (!lastCheckString) {
+            console.log("Primeira visita, não há 'lastLogCheck' para comparar.");
+            return; 
+        }
+
+        try {
+            const lastCheckDate = new Date(lastCheckString);
+            const logsCollectionRef = collection(db, "dadosIgreja", "ADCA-CG", "logs");
+            
+            const q = query(
+                logsCollectionRef,
+                where("timestamp", ">", Timestamp.fromDate(lastCheckDate)),
+                limit(1) // Só precisamos saber se *existe* 1, não de todos
+            );
+
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                // Temos novos logs! Mostra o ícone.
+                console.log("Novos logs encontrados!");
+                newLogsIndicator.classList.remove("hidden");
+                lucide.createIcons(); // Recria o ícone do sino
+            } else {
+                console.log("Nenhum log novo desde a última checagem.");
+            }
+
+        } catch (error) {
+            console.error("Erro ao verificar novos logs:", error);
+        }
+    }
+
+    /**
+     * [NOVO] Adiciona o listener de clique para o ícone de notificação.
+     * Ao clicar, reseta os filtros para a data atual e recarrega os logs.
+     */
+    function setupLogIndicatorListener() {
+        const newLogsIndicator = document.getElementById("new-logs-indicator");
+        if (newLogsIndicator) {
+            // Esta função só é chamada uma vez no onAuthStateChanged, 
+            // então não precisamos nos preocupar com listeners duplicados.
+            newLogsIndicator.addEventListener('click', () => {
+                console.log("Indicador de log clicado.");
+                
+                // 1. Reseta os filtros de data para o MÊS/ANO ATUAL
+                const filterMes = document.getElementById("filter-mes");
+                const filterAno = document.getElementById("filter-ano");
+                popularFiltrosData(filterMes, filterAno, new Date()); 
+                
+                // 2. Limpa outros filtros
+                const emailInput = document.getElementById("filter-email");
+                const actionInput = document.getElementById("filter-action");
+                if (emailInput) emailInput.value = "";
+                if (actionInput) actionInput.value = "";
+                
+                // 3. Carrega os logs
+                // A função loadLogs() já vai esconder o ícone (no 'try') e
+                // atualizar o 'lastLogCheck' automaticamente.
+                loadLogs(); 
+            });
+        }
+    }
+    // [FIM DAS NOVAS FUNÇÕES]
+
+
     /**
      * [NOVO] Popula os seletores de Mês e Ano.
      */
@@ -455,6 +539,8 @@ function initializeAppUI() {
 
     /**
      * [ALTERADO] Carrega os logs com base nos filtros de Mês/Ano.
+     * Agora, também atualiza o 'lastLogCheck' no localStorage ao carregar
+     * e esconde o ícone de notificação.
      */
     async function loadLogs() {
         if (!auth.currentUser) return;
@@ -510,35 +596,43 @@ function initializeAppUI() {
 
             if (querySnapshot.empty) {
                 if(listaLogs) listaLogs.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Nenhum log encontrado para os filtros aplicados.</td></tr>';
-                return;
-            }
-            
-            querySnapshot.docs.forEach(doc => {
-                const log = { id: doc.id, ...doc.data() }; // Salva o log com ID
-                localLogs.push(log); // Adiciona ao array local
-                
-                const tr = document.createElement("tr");
+                // [ALTERADO] Removemos o 'return' daqui para que o timestamp
+                // seja atualizado no final do bloco 'try'.
+            } else {
+                querySnapshot.docs.forEach(doc => {
+                    const log = { id: doc.id, ...doc.data() }; // Salva o log com ID
+                    localLogs.push(log); // Adiciona ao array local
+                    
+                    const tr = document.createElement("tr");
 
-                // Formata a data
-                const data = log.timestamp.toDate().toLocaleString('pt-BR', {
-                    dateStyle: 'short',
-                    timeStyle: 'medium'
+                    // Formata a data
+                    const data = log.timestamp.toDate().toLocaleString('pt-BR', {
+                        dateStyle: 'short',
+                        timeStyle: 'medium'
+                    });
+
+                    const detalhesHtml = formatarDetalhes(log.acao, log.detalhes);
+
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 align-top">${data}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 align-top">${log.userEmail || 'N/A'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-700 align-top">${log.acao}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900 align-top">
+                            <div class="log-details-container log-details-clickable" data-log-id="${log.id}">
+                                ${detalhesHtml}
+                            </div>
+                        </td>
+                    `;
+                    if(listaLogs) listaLogs.appendChild(tr);
                 });
+            }
 
-                const detalhesHtml = formatarDetalhes(log.acao, log.detalhes);
+            // [NOVO] Atualiza o timestamp da "última visualização" e esconde o ícone,
+            // pois a busca (mesmo que vazia) foi concluída com sucesso.
+            localStorage.setItem('lastLogCheck', new Date().toISOString());
+            const newLogsIndicator = document.getElementById("new-logs-indicator");
+            if (newLogsIndicator) newLogsIndicator.classList.add("hidden");
 
-                tr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 align-top">${data}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 align-top">${log.userEmail || 'N/A'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-700 align-top">${log.acao}</td>
-                    <td class="px-6 py-4 text-sm text-gray-900 align-top">
-                        <div class="log-details-container log-details-clickable" data-log-id="${log.id}">
-                            ${detalhesHtml}
-                        </div>
-                    </td>
-                `;
-                if(listaLogs) listaLogs.appendChild(tr);
-            });
 
         } catch (error) {
             console.error("Erro ao buscar logs:", error);
@@ -553,6 +647,7 @@ function initializeAppUI() {
             toggleButtonLoading(filterSubmitBtn, false, "Buscar");
             addLogClickListeners(); // Adiciona os listeners de clique
             lucide.createIcons();
+            // [REMOVIDO] A lógica do 'lastLogCheck' foi movida para o 'try'
         }
     }
 
